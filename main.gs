@@ -8,24 +8,35 @@ function doPost(e) {
 
     //メッセージを改行ごとに分割
     const allMsg = userMessage.split("\n");
+    // スプレッドシートの取得
+    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet()
     // データを書き込むスプレッドシートを定義
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("シート1");
+    const taskSheet = spreadSheet.getSheetByName("タスク");
     // 最終行の取得
-    const lastRow = sheet.getLastRow();
+    const lastRow = taskSheet.getLastRow();
     // 最終列の取得
-    const lastColumn = sheet.getLastColumn();
+    const lastColumn = taskSheet.getLastColumn();
 
     // 返答メッセージ
     let message = "";
-    switch (allMsg[0]) {
-      case "今のタスクは？":
-        message = returnData(sheet, lastRow, lastColumn);
+
+    // 処理区分の取得
+    const shoriKbn = shoriKbnGet(spreadSheet, allMsg[0]);
+
+    switch (shoriKbn) {
+      case "1":
+        allMsg.shift();
+        message = dataAdd(taskSheet, lastRow, lastColumn, allMsg);
         break;
-      case "完了":
-        message = deleteRow(sheet, lastRow, allMsg);
+      case "2":
+        allMsg.shift();
+        message = deleteRow(taskSheet, lastRow, allMsg);
+        break;
+      case "3":
+        message = returnData(taskSheet, lastRow, lastColumn);
         break;
       default:
-        message = dataAdd(sheet, lastRow, lastColumn, allMsg);
+        message = "エラーが発生しました。";
         break;
     }
 
