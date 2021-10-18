@@ -46,7 +46,6 @@ function execValid(lastColumn, allMsg) {
   }
 
   return "";
-
 }
 
 /**
@@ -105,16 +104,15 @@ function returnData(taskSheet, lastRow, lastColumn) {
   }
 
   // タスクを全て取得し、返却用メッセージに編集する。
-  let reTaskArray = "現在登録されているタスクです。";
+  let reTaskArray = "現在登録されているタスクです。\n";
   const dataObj = dataGet(taskSheet, lastRow, lastColumn);
   const taskArray = dataObj.data;
   const header = dataObj.header;
   taskArray.forEach(taskRow => {
-    taskRow.forEach((taskColumn, i) =>
-      // ヘッダー + 値で設定する。
-      reTaskArray += header[i] + ":" + taskColumn + "\n");
-    // タスクごとに区切り文字を入れる。
+    // タスクごとに改行を入れる。
     reTaskArray += "\n";
+    taskRow.forEach((taskColumn, i) => reTaskArray += `${header[i]}:${taskColumn}\n`);
+
   })
   return reTaskArray;
 }
@@ -156,19 +154,25 @@ function setTrigger() {
 function remind() {
   // データを書き込むスプレッドシートを定義
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("タスク");
-  // 最終行の取得
-  const lastRow = sheet.getLastRow();
+  // スプレッドシートからタスクを取得
+  const dataObj = dataGet(sheet, sheet.getLastRow(), sheet.getLastColumn());
   // 現在日時の取得
   const keyDate = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyyMMdd");
-  let message = "今日期限のタスクです。";
-  for (let i = 1; i <= lastRow; i++) {
-    const data = sheet.getRange(i, 2).getValue();
-    if (keyDate == data) {
-      message += sheet.getRange(i, 1).getValue() + "\n" + sheet.getRange(i, 2).getValue() + "\n";
+  let message = "";
+  const taskArray = dataObj.data;
+  const header = dataObj.header;
+  taskArray.forEach((taskRow) => {
+    const date = taskRow[1];
+    if (date == keyDate) {
+      message += "\n";
+      taskRow.forEach((task, i) => message += `${header[i]}:${task}\n`)
     }
-    message += "\n";
+  })
+  // リマインドするタスクが無い場合は処理しない。
+  if (!message) {
+    return;
   }
-  push(message);
+  push(`今日期限のタスクです。\n"${message}`);
 }
 
 /**

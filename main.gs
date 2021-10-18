@@ -44,7 +44,6 @@ function doPost(e) {
     lineReply(message, replyToken);
 
   } catch (e) {
-    console.log(e);
     let message = "エラーが発生しました。" + e;
     lineReply(message, replyToken);
   }
