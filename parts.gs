@@ -1,28 +1,24 @@
 /**
  * 処理区分取得処理
- * @param spredSheet スプレッドシート
+ * @param msgSheet メッセージシート
  * @param inputMsg 入力メッセージ
  * @return 処理区分
  */
-function shoriKbnGet(spreadSheet, inputMsg) {
+function shoriKbnGet(msgSheet, inputMsg) {
 
-  const msgSheet = spreadSheet.getSheetByName("メッセージ");
-  const lastRow = msgSheet.getLastRow();
-  const lastColumn = msgSheet.getLastColumn();
-  const msgArray = msgSheet.getRange(2, 1, lastRow, lastColumn).getValues();
-  // メッセージマスタと入力メッセージを比較し、処理区分を決定する。
-  for (const msg of msgArray) {
-    if (inputMsg.indexOf(msg[0]) != -1) {
-      return msg[1];
+  const msgObjects = dataGet(msgSheet);
+  //メッセージマスタと入力メッセージを比較し、処理区分を決定する。
+  for (const msg of msgObjects) {
+    if (inputMsg.indexOf(msg.message) != -1) {
+      return msg.shorikbn;
     }
   }
+
   return "";
 }
 
 /**
  * バリデーションチェック処理
- * @param sheet シート
- * @param lastRow 最終行
  * @param lastColumn 最終列
  * @param allMsg インプットメッセージ
  * @return エラーメッセージ
@@ -30,7 +26,7 @@ function shoriKbnGet(spreadSheet, inputMsg) {
 function execValid(lastColumn, allMsg) {
 
   if (allMsg.length !== lastColumn) {
-    return "以下の形式で送信して下さい。\n\n登録 登録して 等\nタスク名\n完了期限(yyyyMMdd)";
+    return `以下の形式で送信して下さい。${NEW_LINE}${NEW_LINE}登録 登録して 等${NEW_LINE}タスク名${NEW_LINE}完了期限(yyyyMMdd)`;
   }
 
   if (!allMsg[1].match("^[0-9]{8}$")) {
@@ -51,84 +47,63 @@ function execValid(lastColumn, allMsg) {
 /**
  * データ登録処理
  * @param taskSheet シート
- * @param lastRow 最終行
- * @param lastColumn 最終列
  * @param allMsg インプットメッセージ
  * @return 正常終了メッセージ or エラーメッセージ
  */
-function dataAdd(taskSheet, lastRow, lastColumn, allMsg) {
+function dataAdd(taskSheet, allMsg) {
+  // 最終列の取得
+  const lastColumn = taskSheet.getLastColumn();
   //受信メッセージが正しい形式か確認
   const errorMsg = execValid(lastColumn, allMsg);
   if (errorMsg) {
     return errorMsg;
   }
-
+  // タスクを書き込む行
+  const newRow = taskSheet.getLastRow() + 1;
   // タスクを書き込む
-  const newRow = lastRow + 1;
   allMsg.forEach((msg, i) => taskSheet.getRange(newRow, i + 1).setValue(msg));
   // 完了期限順でソートしておく
-  taskSheet.getRange(2, 1, lastRow + 1, lastColumn).sort(2);
+  taskSheet.getRange(START_ROW, START_COLUMN, newRow, lastColumn).sort(COLUMN_TIMELIMIT);
   return "データを登録しました。";
-}
-
-/**
- * データ取得処理
- * @param taskSheet シート
- * @param lastRow 最終行
- * @param lastColumn 最終列
- * @return dataObj データオブジェクト
- */
-function dataGet(taskSheet, lastRow, lastColumn) {
-
-  const taskArray = taskSheet.getRange(1, 1, lastRow, lastColumn).getValues();
-  const header = taskArray.shift();
-  const dataObj = {
-    header: header,
-    data: taskArray
-  };
-
-  return dataObj;
 }
 
 /**
  * データ返却処理
  * @param taskSheet シート
- * @param lastRow 最終行
- * @param lastColumn 最終列
  * @return reTaskArray リプライ用タスクリスト
  */
-function returnData(taskSheet, lastRow, lastColumn) {
+function returnData(taskSheet) {
   // データがあるか判定
-  if (lastRow == 1) {
+  if (taskSheet.getLastRow() == 1) {
     return "タスクがありません。";
   }
 
   // タスクを全て取得し、返却用メッセージに編集する。
-  let reTaskArray = "現在登録されているタスクです。\n";
-  const dataObj = dataGet(taskSheet, lastRow, lastColumn);
-  const taskArray = dataObj.data;
-  const header = dataObj.header;
-  taskArray.forEach(taskRow => {
+  let reTaskArray = `現在登録されているタスクです。${NEW_LINE}`;
+  const dataObjects = dataGet(taskSheet);
+  dataObjects.forEach(dataObject => {
     // タスクごとに改行を入れる。
-    reTaskArray += "\n";
-    taskRow.forEach((taskColumn, i) => reTaskArray += `${header[i]}:${taskColumn}\n`);
-
-  })
+    reTaskArray += NEW_LINE;
+    Object.keys(dataObject).forEach(key => reTaskArray += `${key}:${dataObject[key]}${NEW_LINE}`);
+  });
   return reTaskArray;
 }
 
 /**
  * データ削除処理
  * @param taskSheet シート
- * @param lastRow 最終行
  * @param allMsg インプットメッセージ
  * @return 正常終了メッセージ or エラーメッセージ
  */
-function deleteRow(taskSheet, lastRow, allMsg) {
+function deleteRow(taskSheet, allMsg) {
+  // 最終行の取得
+  const lastRow = taskSheet.getLastRow();
+  // 削除対象キー
   const key = allMsg[0];
-  for (let i = 1; i <= lastRow; i++) {
-    const data = taskSheet.getRange(i, 1).getValue();
-    if (key === data) {
+  // 1行目から順にタスク名を比較し、一致していたら削除する。
+  for (let i = START_ROW; i <= lastRow; i++) {
+    const taskName = taskSheet.getRange(i, 1).getValue();
+    if (key === taskName) {
       taskSheet.deleteRow(i);
       return "完了タスクを削除しました。";
     }
@@ -142,8 +117,9 @@ function deleteRow(taskSheet, lastRow, allMsg) {
  */
 function setTrigger() {
   const date = new Date();
+  // 9時にトリガーを設定する
   date.setHours(9);
-  date.setMinutes(00);
+  date.setMinutes(0);
   date.setSeconds(0);
   ScriptApp.newTrigger('remind').timeBased().at(date).create();
 }
@@ -153,26 +129,47 @@ function setTrigger() {
  */
 function remind() {
   // データを書き込むスプレッドシートを定義
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("タスク");
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_TASK);
   // スプレッドシートからタスクを取得
-  const dataObj = dataGet(sheet, sheet.getLastRow(), sheet.getLastColumn());
+  const dataObjects = dataGet(sheet);
   // 現在日時の取得
   const keyDate = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyyMMdd");
   let message = "";
-  const taskArray = dataObj.data;
-  const header = dataObj.header;
-  taskArray.forEach((taskRow) => {
-    const date = taskRow[1];
-    if (date == keyDate) {
-      message += "\n";
-      taskRow.forEach((task, i) => message += `${header[i]}:${task}\n`)
+  // 現在日時とtimelimitが一致するデータをリマインドする。
+  dataObjects.forEach(dataObject => {
+    if (dataObject.timelimit == keyDate) {
+      message += NEW_LINE;
+      Object.keys(dataObject).forEach(key => message += `${key}:${dataObject[key]}${NEW_LINE}`);
     }
-  })
+  });
   // リマインドするタスクが無い場合は処理しない。
   if (!message) {
     return;
   }
-  push(`今日期限のタスクです。\n"${message}`);
+  push(`今日期限のタスクです。${NEW_LINE}${message}`);
+}
+
+/**
+ * データ取得処理
+ * マスタデータをオブジェクト化して返却する
+ * 
+ * @param sheet シート
+ * @return dataObjects データオブジェクト
+ */
+function dataGet(sheet) {
+
+  const dataArray = sheet.getRange(HEADER_ROW, START_COLUMN, sheet.getLastRow(), sheet.getLastColumn()).getValues();
+  const header = dataArray.shift();
+  const dataObjects = [];
+  dataArray.forEach(dataRow => {
+    const dataObj = {};
+    dataRow.forEach((data, i) => {
+      dataObj[header[i]] = data;
+    });
+    dataObjects.push(dataObj);
+  });
+
+  return dataObjects;
 }
 
 /**

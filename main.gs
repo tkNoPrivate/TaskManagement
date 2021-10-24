@@ -7,33 +7,27 @@ function doPost(e) {
   try {
 
     //メッセージを改行ごとに分割
-    const allMsg = userMessage.split("\n");
+    const allMsg = userMessage.split(NEW_LINE);
     // スプレッドシートの取得
-    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet()
-    // データを書き込むスプレッドシートを定義
-    const taskSheet = spreadSheet.getSheetByName("タスク");
-    // 最終行の取得
-    const lastRow = taskSheet.getLastRow();
-    // 最終列の取得
-    const lastColumn = taskSheet.getLastColumn();
-
-    // 返答メッセージ
-    let message = "";
+    const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
 
     // 処理区分の取得
-    const shoriKbn = shoriKbnGet(spreadSheet, allMsg[0]);
-
+    const shoriKbn = shoriKbnGet(spreadSheet.getSheetByName(SHEET_MESSAGE), allMsg[0]);
+    // データを書き込むスプレッドシートを定義
+    const taskSheet = spreadSheet.getSheetByName(SHEET_TASK);
+    // 返答メッセージ
+    let message = "";
     switch (shoriKbn) {
-      case "1":
+      case SHORI_KBN_INS:
         allMsg.shift();
-        message = dataAdd(taskSheet, lastRow, lastColumn, allMsg);
+        message = dataAdd(taskSheet, allMsg);
         break;
-      case "2":
+      case SHORI_KBN_DEL:
         allMsg.shift();
-        message = deleteRow(taskSheet, lastRow, allMsg);
+        message = deleteRow(taskSheet, allMsg);
         break;
-      case "3":
-        message = returnData(taskSheet, lastRow, lastColumn);
+      case SHORI_KBN_GET:
+        message = returnData(taskSheet);
         break;
       default:
         message = "エラーが発生しました。";
