@@ -19,23 +19,35 @@ function shoriKbnGet(msgSheet, inputMsg) {
 
 /**
  * バリデーションチェック処理
+ * @param taskSheet シート
  * @param lastColumn 最終列
  * @param allMsg インプットメッセージ
  * @return エラーメッセージ
  */
-function execValid(lastColumn, allMsg) {
-
+function validationCheck(taskSheet, lastColumn, allMsg) {
+  //メッセージの形式チェック
   if (allMsg.length !== lastColumn) {
     return `以下の形式で送信して下さい。${NEW_LINE}${NEW_LINE}登録 登録して 等${NEW_LINE}タスク名${NEW_LINE}完了期限(yyyyMMdd)`;
   }
 
-  if (!allMsg[1].match("^[0-9]{8}$")) {
+  // タスク名チェック
+  const taskName = allMsg[0];
+  const dataObjects = dataGet(taskSheet);
+  for (const dataObj of dataObjects) {
+    if (dataObj.taskname === taskName) {
+      return "すでに登録されているタスクです。";
+    }
+  }
+
+  // 完了期限チェック
+  const timeLimit = allMsg[1];
+  if (!timeLimit.match("^[0-9]{8}$")) {
     return "期限はyyyyMMdd形式で指定してください。"
   }
 
-  const y = allMsg[1].substr(0, 4);
-  const m = allMsg[1].substr(4, 2);
-  const d = allMsg[1].substr(6, 2);
+  const y = timeLimit.substr(0, 4);
+  const m = timeLimit.substr(4, 2);
+  const d = timeLimit.substr(6, 2);
   const date = new Date(y, m - 1, d);
   if (m != date.getMonth() + 1) {
     return "無効な日付です。"
@@ -54,7 +66,7 @@ function dataAdd(taskSheet, allMsg) {
   // 最終列の取得
   const lastColumn = taskSheet.getLastColumn();
   //受信メッセージが正しい形式か確認
-  const errorMsg = execValid(lastColumn, allMsg);
+  const errorMsg = validationCheck(taskSheet, lastColumn, allMsg);
   if (errorMsg) {
     return errorMsg;
   }
@@ -118,8 +130,8 @@ function deleteRow(taskSheet, allMsg) {
 function setTrigger() {
   const date = new Date();
   // 9時にトリガーを設定する
-  date.setHours(9);
-  date.setMinutes(0);
+  date.setHours(10);
+  date.setMinutes(51);
   date.setSeconds(0);
   ScriptApp.newTrigger('remind').timeBased().at(date).create();
 }
