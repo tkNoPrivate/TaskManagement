@@ -130,8 +130,8 @@ function deleteRow(taskSheet, allMsg) {
 function setTrigger() {
   const date = new Date();
   // 9時にトリガーを設定する
-  date.setHours(10);
-  date.setMinutes(51);
+  date.setHours(9);
+  date.setMinutes(0);
   date.setSeconds(0);
   ScriptApp.newTrigger('remind').timeBased().at(date).create();
 }

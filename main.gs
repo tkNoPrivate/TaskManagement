@@ -30,7 +30,7 @@ function doPost(e) {
         message = returnData(taskSheet);
         break;
       default:
-        message = "エラーが発生しました。";
+        message = "メッセージマスタに登録されていない文字が送信されたので処理が出来ませんでした。";
         break;
     }
 
